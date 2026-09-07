@@ -12,6 +12,7 @@ type CheckInRecord = {
 type SuggestionResponse = {
   names: string[]
   batches: string[]
+  nameBatchPairs?: Array<{ name: string; batch: string }>
 }
 
 type AutocompleteFieldProps = {
@@ -21,6 +22,11 @@ type AutocompleteFieldProps = {
   value: string
   suggestions: string[]
   onValueChange: (value: string) => void
+  onSuggestionSelect?: (value: string) => void
+}
+
+type CheckInAgainButtonProps = {
+  onClick: () => void
 }
 
 const STORAGE_KEY = 'exxcheckin.record'
@@ -92,6 +98,12 @@ async function requestSuggestions(): Promise<SuggestionResponse> {
     return {
       names: ['Alex', 'Jordan', 'Taylor', 'Sam'],
       batches: ['2022', '2023', '2024', '2025'],
+      nameBatchPairs: [
+        { name: 'Alex', batch: '2022' },
+        { name: 'Jordan', batch: '2023' },
+        { name: 'Taylor', batch: '2024' },
+        { name: 'Sam', batch: '2025' },
+      ],
     }
   }
 
@@ -160,6 +172,16 @@ function filterSuggestions(suggestions: string[], value: string): string[] {
     .slice(0, 8)
 }
 
+function sortSuggestions(suggestions: string[]): string[] {
+  return [...suggestions].sort((left, right) =>
+    left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }),
+  )
+}
+
+function normalizeSuggestion(value: string): string {
+  return value.trim().toLowerCase()
+}
+
 function AutocompleteField({
   id,
   label,
@@ -167,6 +189,7 @@ function AutocompleteField({
   value,
   suggestions,
   onValueChange,
+  onSuggestionSelect,
 }: AutocompleteFieldProps) {
   const [isOpen, setIsOpen] = useState(false)
   const filteredSuggestions = useMemo(
@@ -204,6 +227,7 @@ function AutocompleteField({
                 key={`${id}-${item}`}
                 onMouseDown={() => {
                   onValueChange(item)
+                  onSuggestionSelect?.(item)
                   setIsOpen(false)
                 }}
               >
@@ -217,6 +241,31 @@ function AutocompleteField({
   )
 }
 
+function CheckInAgainButton({ onClick }: CheckInAgainButtonProps) {
+  return (
+    <button type="button" class="checkin-again-button" onClick={onClick} aria-label="Check in again">
+      <svg class="checkin-again-icon" aria-hidden="true" viewBox="0 0 24 24" role="img">
+        <path
+          d="M8 7H4V3"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.9"
+        />
+        <path
+          d="M4.5 7.5a8 8 0 1 1-1.2 5.8"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.9"
+        />
+      </svg>
+    </button>
+  )
+}
+
 export function App() {
   const [route, setRoute] = useState<Route>(getRouteFromHash())
   const [record, setRecord] = useState<CheckInRecord | null>(() => loadRecord())
@@ -227,6 +276,7 @@ export function App() {
 
   const [names, setNames] = useState<string[]>([])
   const [batches, setBatches] = useState<string[]>([])
+  const [nameToBatch, setNameToBatch] = useState<Record<string, string>>({})
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -256,13 +306,29 @@ export function App() {
   useEffect(() => {
     requestSuggestions()
       .then((data) => {
-        setNames(data.names ?? [])
-        setBatches(data.batches ?? [])
+        setNames(sortSuggestions(data.names ?? []))
+        setBatches(sortSuggestions(data.batches ?? []))
+
+        const mapping = (data.nameBatchPairs ?? []).reduce<Record<string, string>>((accumulator, pair) => {
+          if (pair.name && pair.batch) {
+            accumulator[normalizeSuggestion(pair.name)] = pair.batch
+          }
+          return accumulator
+        }, {})
+
+        setNameToBatch(mapping)
       })
       .catch(() => {
         setError('Could not load suggestions. You can still type manually.')
       })
   }, [])
+
+  useEffect(() => {
+    const matchedBatch = nameToBatch[normalizeSuggestion(name)]
+    if (matchedBatch && matchedBatch !== batch) {
+      setBatch(matchedBatch)
+    }
+  }, [name, batch, nameToBatch])
 
   useEffect(() => {
     if (route === 'checkin' && record) {
@@ -361,6 +427,12 @@ export function App() {
               value={name}
               suggestions={names}
               onValueChange={setName}
+              onSuggestionSelect={(selectedName) => {
+                const matchedBatch = nameToBatch[normalizeSuggestion(selectedName)]
+                if (matchedBatch) {
+                  setBatch(matchedBatch)
+                }
+              }}
             />
 
             <AutocompleteField
@@ -401,10 +473,8 @@ export function App() {
               <strong>Check-In Time:</strong> {formatDateTime(record.checkinTimestamp)}
             </p>
             <h2>Lets party</h2>
-            <div class="actions">
-              <button type="button" class="secondary-button" onClick={handleCheckInAgain}>
-                Check In Again
-              </button>
+            <div class="corner-actions">
+              <CheckInAgainButton onClick={handleCheckInAgain} />
             </div>
           </section>
         )}
@@ -419,31 +489,33 @@ export function App() {
             )}
 
             {record && (
-              <form class="form" onSubmit={handleFeedbackSubmit}>
-                <label for="feedback-name">Full Name</label>
-                <input id="feedback-name" value={record.name} readOnly />
+              <>
+                <form class="form" onSubmit={handleFeedbackSubmit}>
+                  <label for="feedback-name">Full Name</label>
+                  <input id="feedback-name" value={record.name} readOnly />
 
-                <label for="feedback-batch">Batch</label>
-                <input id="feedback-batch" value={record.batch} readOnly />
+                  <label for="feedback-batch">Batch</label>
+                  <input id="feedback-batch" value={record.batch} readOnly />
 
-                <label for="feedback">Feedback</label>
-                <textarea
-                  id="feedback"
-                  value={feedbackText}
-                  onInput={(event) => setFeedbackText((event.target as HTMLTextAreaElement).value)}
-                  placeholder="Tell us about the reunion experience"
-                  rows={5}
-                  maxLength={1000}
-                  required
-                />
+                  <label for="feedback">Feedback</label>
+                  <textarea
+                    id="feedback"
+                    value={feedbackText}
+                    onInput={(event) => setFeedbackText((event.target as HTMLTextAreaElement).value)}
+                    placeholder="Tell us about the reunion experience"
+                    rows={5}
+                    maxLength={1000}
+                    required
+                  />
 
-                <button type="submit" disabled={busy}>
-                  {busy ? 'Submitting feedback...' : 'Submit Feedback'}
-                </button>
-                <button type="button" class="secondary-button" onClick={handleCheckInAgain}>
-                  Check In Again
-                </button>
-              </form>
+                  <button type="submit" disabled={busy}>
+                    {busy ? 'Submitting feedback...' : 'Submit Feedback'}
+                  </button>
+                </form>
+                <div class="corner-actions">
+                  <CheckInAgainButton onClick={handleCheckInAgain} />
+                </div>
+              </>
             )}
           </section>
         )}
@@ -458,6 +530,9 @@ export function App() {
             <p>
               You can close this page now.
             </p>
+            <div class="corner-actions">
+              <CheckInAgainButton onClick={handleCheckInAgain} />
+            </div>
           </section>
         )}
       </section>

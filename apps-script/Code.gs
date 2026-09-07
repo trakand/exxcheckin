@@ -8,10 +8,13 @@ function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) || 'health';
 
   if (action === 'suggestions') {
+    const nameBatchPairs = getNameBatchPairs_(SUGGESTIONS_SHEET);
+
     return jsonResponse({
       ok: true,
       names: getSuggestions(SUGGESTIONS_SHEET, SUGGESTION_NAME_COLUMN, 2),
       batches: getSuggestions(SUGGESTIONS_SHEET, SUGGESTION_BATCH_COLUMN, 3),
+      nameBatchPairs: nameBatchPairs,
     });
   }
 
@@ -139,6 +142,39 @@ function uniqueValues_(rows) {
   }
 
   return result;
+}
+
+function getNameBatchPairs_(sheetName) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sourceSheet = findSheetByName_(ss, sheetName);
+
+  if (!sourceSheet) return [];
+
+  const lastRow = sourceSheet.getLastRow();
+  if (lastRow < 2) return [];
+
+  const values = sourceSheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  const seen = {};
+  const pairs = [];
+
+  for (var i = 0; i < values.length; i++) {
+    const name = cleanText_(values[i][0], 100);
+    const batch = cleanText_(values[i][1], 100);
+
+    if (!name || !batch) continue;
+
+    const key = normalizeSheetName_(name) + '|' + normalizeSheetName_(batch);
+    if (seen[key]) continue;
+
+    seen[key] = true;
+    pairs.push({ name: name, batch: batch });
+  }
+
+  pairs.sort(function (left, right) {
+    return left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  return pairs;
 }
 
 function getSheet_(sheetName) {
