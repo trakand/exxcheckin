@@ -266,8 +266,8 @@ export function App() {
 
   useEffect(() => {
     if (route === 'checkin' && record) {
-      navigate('done')
-      setRoute('done')
+      navigate('feedback')
+      setRoute('feedback')
     }
   }, [route, record])
 
