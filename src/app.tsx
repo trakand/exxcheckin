@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
 
-type Route = 'checkin' | 'done' | 'feedback'
+type Route = 'checkin' | 'done' | 'feedback' | 'thanks'
 
 type CheckInRecord = {
   checkinId: string
@@ -28,6 +28,12 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').trim()
 const USE_MOCK_API =
   (import.meta.env.VITE_USE_MOCK_API ?? 'false').trim().toLowerCase() === 'true' ||
   API_BASE_URL.length === 0
+const EVENT_TITLE_TOP = 'Peradeniya'
+const EVENT_TITLE_MAIN = 'E-XX Reunion'
+const EVENT_TITLE_BOTTOM = 'Melbourne 2026'
+const EVENT_DATE = '12 September 2026'
+const EVENT_TIME = '6:30 PM to Midnight'
+const EVENT_LOCATION = 'Whitehouse, 247 Princes Hwy, Dandenong VIC 3175'
 
 function nowIso(): string {
   return new Date().toISOString()
@@ -41,6 +47,7 @@ function getRouteFromHash(): Route {
   const normalized = window.location.hash.replace(/^#\/?/, '').toLowerCase()
   if (normalized === 'done') return 'done'
   if (normalized === 'feedback') return 'feedback'
+  if (normalized === 'thanks') return 'thanks'
   return 'checkin'
 }
 
@@ -223,7 +230,6 @@ export function App() {
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [feedbackSuccess, setFeedbackSuccess] = useState('')
 
   const handleCheckInAgain = () => {
     clearRecord()
@@ -232,7 +238,6 @@ export function App() {
     setBatch('')
     setFeedbackText('')
     setError('')
-    setFeedbackSuccess('')
     navigate('checkin')
     setRoute('checkin')
   }
@@ -265,13 +270,6 @@ export function App() {
       setRoute('done')
     }
   }, [route, record])
-
-  const subtitle = useMemo(() => {
-    if (USE_MOCK_API) {
-      return 'Local test mode is active. Data writes are mocked.'
-    }
-    return 'Live mode connected to Google Apps Script API.'
-  }, [])
 
   const handleCheckInSubmit = async (event: Event) => {
     event.preventDefault()
@@ -312,7 +310,6 @@ export function App() {
   const handleFeedbackSubmit = async (event: Event) => {
     event.preventDefault()
     setError('')
-    setFeedbackSuccess('')
 
     if (!record) {
       setError('Check-in record is missing. Please check in first.')
@@ -329,7 +326,8 @@ export function App() {
     try {
       await submitFeedback(record.checkinId, trimmedFeedback)
       setFeedbackText('')
-      setFeedbackSuccess('Thank you for the feedback!')
+      navigate('thanks')
+      setRoute('thanks')
     } catch {
       setError('Could not submit feedback. Please try again.')
     } finally {
@@ -340,9 +338,13 @@ export function App() {
   return (
     <main class="app-shell">
       <section class="card">
-        <p class="mode-badge">EXX Check-In</p>
-        <h1>Event Entry</h1>
-        <p class="subtitle">{subtitle}</p>
+        <h1 class="event-title">
+          <span class="event-title-top">{EVENT_TITLE_TOP}</span>
+          <span class="event-title-main">{EVENT_TITLE_MAIN}</span>
+          <span class="event-title-bottom">{EVENT_TITLE_BOTTOM}</span>
+        </h1>
+        <p class="event-meta">{EVENT_DATE} · {EVENT_TIME}</p>
+        <p class="event-location">{EVENT_LOCATION}</p>
 
         {error && (
           <p class="status error" role="alert">
@@ -350,18 +352,12 @@ export function App() {
           </p>
         )}
 
-        {feedbackSuccess && (
-          <p class="status success" role="status">
-            {feedbackSuccess}
-          </p>
-        )}
-
         {route === 'checkin' && (
           <form class="form" onSubmit={handleCheckInSubmit}>
             <AutocompleteField
               id="name"
-              label="Name"
-              placeholder="Enter your name"
+              label="Full Name"
+              placeholder="Start typing your name"
               value={name}
               suggestions={names}
               onValueChange={setName}
@@ -370,39 +366,44 @@ export function App() {
             <AutocompleteField
               id="batch"
               label="Batch"
-              placeholder="Enter your batch"
+              placeholder="Select or type your batch"
               value={batch}
               suggestions={batches}
               onValueChange={setBatch}
             />
 
-            <label for="timestamp">Timestamp</label>
-            <input id="timestamp" name="timestamp" value={formatDateTime(liveTimestamp)} readOnly />
+            <label for="timestamp">Check-In Time</label>
+            <input
+              id="timestamp"
+              name="timestamp"
+              class="readonly-input"
+              value={formatDateTime(liveTimestamp)}
+              readOnly
+              aria-readonly="true"
+            />
 
             <button type="submit" disabled={busy}>
-              {busy ? 'Checking in...' : 'Check-In'}
+              {busy ? 'Checking you in...' : 'Check In to Reunion'}
             </button>
           </form>
         )}
 
         {route === 'done' && record && (
           <section class="done" aria-live="polite">
+            <p class="done-kicker">You are checked in for the reunion.</p>
             <p>
-              <strong>Name:</strong> {record.name}
+              <strong>Full Name:</strong> {record.name}
             </p>
             <p>
               <strong>Batch:</strong> {record.batch}
             </p>
             <p>
-              <strong>Timestamp:</strong> {formatDateTime(record.checkinTimestamp)}
+              <strong>Check-In Time:</strong> {formatDateTime(record.checkinTimestamp)}
             </p>
             <h2>Lets party</h2>
             <div class="actions">
-              <button type="button" onClick={() => navigate('feedback')}>
-                Leave Feedback
-              </button>
               <button type="button" class="secondary-button" onClick={handleCheckInAgain}>
-                Check in again
+                Check In Again
               </button>
             </div>
           </section>
@@ -410,6 +411,7 @@ export function App() {
 
         {route === 'feedback' && (
           <section>
+            <h2 class="feedback-title">Reunion Feedback</h2>
             {!record && (
               <div class="status error">
                 No check-in found on this device. Please scan the check-in QR first.
@@ -418,7 +420,7 @@ export function App() {
 
             {record && (
               <form class="form" onSubmit={handleFeedbackSubmit}>
-                <label for="feedback-name">Name</label>
+                <label for="feedback-name">Full Name</label>
                 <input id="feedback-name" value={record.name} readOnly />
 
                 <label for="feedback-batch">Batch</label>
@@ -429,20 +431,33 @@ export function App() {
                   id="feedback"
                   value={feedbackText}
                   onInput={(event) => setFeedbackText((event.target as HTMLTextAreaElement).value)}
-                  placeholder="Tell us how the event was"
+                  placeholder="Tell us about the reunion experience"
                   rows={5}
                   maxLength={1000}
                   required
                 />
 
                 <button type="submit" disabled={busy}>
-                  {busy ? 'Submitting...' : 'Submit Feedback'}
+                  {busy ? 'Submitting feedback...' : 'Submit Feedback'}
                 </button>
                 <button type="button" class="secondary-button" onClick={handleCheckInAgain}>
-                  Check in again
+                  Check In Again
                 </button>
               </form>
             )}
+          </section>
+        )}
+
+        {route === 'thanks' && (
+          <section class="done thanks-view" aria-live="polite">
+            <p class="done-kicker">Feedback saved.</p>
+            <h2>Thanks for the feedback</h2>
+            <p>
+              We’ve received your thoughts and saved them to the reunion record.
+            </p>
+            <p>
+              You can close this page now.
+            </p>
           </section>
         )}
       </section>

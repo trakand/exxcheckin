@@ -1,18 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Oswald:wght@400;500;600&display=swap');
 
 :root {
-  --ink: #1e2a3d;
-  --muted: #5f738f;
-  --surface: #f7f3e8;
-  --card: #fffdf8;
-  --line: #d8cda6;
-  --brand: #006d77;
-  --brand-strong: #00565e;
-  --danger-bg: #fdecea;
-  --danger-ink: #9f2d2d;
-  --success-bg: #e9f7ef;
-  --success-ink: #207547;
-  --shadow: 0 16px 38px rgba(31, 46, 76, 0.12);
+  --ink: #3d2810;
+  --muted: #654628;
+  --soft-muted: #876340;
+  --card: rgba(250, 243, 231, 0.96);
+  --line: rgba(180, 122, 45, 0.28);
+  --line-strong: rgba(180, 122, 45, 0.48);
+  --brand: #c58633;
+  --brand-strong: #8d5a22;
+  --brand-ink: #281707;
+  --danger-bg: #fbe9e5;
+  --danger-ink: #8d2f21;
+  --success-bg: #ebf5e3;
+  --success-ink: #2f6730;
+  --shadow: 0 26px 60px rgba(0, 0, 0, 0.28);
 }
 
 * {
@@ -23,11 +25,12 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--ink);
-  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+  font-family: 'Oswald', 'Segoe UI', sans-serif;
   background:
-    radial-gradient(circle at 15% 10%, #fce8cf 0, transparent 42%),
-    radial-gradient(circle at 85% 90%, #d9f2f4 0, transparent 36%),
-    linear-gradient(160deg, #f7f2e4 0%, #edf6f7 100%);
+    radial-gradient(circle at 18% 12%, rgba(240, 162, 57, 0.2) 0, transparent 30%),
+    radial-gradient(circle at 82% 22%, rgba(143, 85, 23, 0.16) 0, transparent 24%),
+    radial-gradient(circle at 50% 100%, rgba(240, 162, 57, 0.1) 0, transparent 36%),
+    linear-gradient(180deg, #140d08 0%, #24170d 48%, #0c0805 100%);
 }
 
 #app {
@@ -39,58 +42,114 @@ body {
   display: grid;
   place-items: center;
   padding: 24px;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.18)),
+    radial-gradient(circle at top center, rgba(255, 194, 82, 0.12), transparent 26%);
 }
 
 .card {
   width: min(560px, 100%);
+  min-height: min(760px, calc(100vh - 48px));
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 20px;
-  padding: 24px;
+  border-radius: 24px;
+  padding: 26px;
   box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.mode-badge {
-  display: inline-flex;
-  margin: 0;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #deedf6;
-  color: #194067;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(140deg, rgba(255, 206, 122, 0.12), transparent 24%),
+    radial-gradient(circle at bottom center, rgba(214, 143, 45, 0.06), transparent 36%);
+  pointer-events: none;
 }
 
 h1 {
   margin: 10px 0 6px;
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-family: 'Cinzel', 'Times New Roman', serif;
   font-size: 34px;
   line-height: 1.1;
+  color: var(--brand-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  position: relative;
+  z-index: 1;
+}
+
+.event-title {
+  display: grid;
+  gap: 2px;
+}
+
+.event-title-top,
+.event-title-main,
+.event-title-bottom {
+  display: block;
+}
+
+.event-title-top {
+  font-size: 0.62em;
+  letter-spacing: 0.08em;
+}
+
+.event-title-main {
+  font-size: 1.2em;
+  line-height: 0.95;
+  letter-spacing: 0.04em;
+}
+
+.event-title-bottom {
+  font-size: 0.82em;
+  letter-spacing: 0.06em;
 }
 
 h2 {
   margin: 18px 0 0;
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-family: 'Cinzel', 'Times New Roman', serif;
   font-size: 30px;
   line-height: 1.1;
+  color: var(--brand-strong);
 }
 
-.subtitle {
-  margin: 0 0 18px;
-  color: var(--muted);
+.event-meta,
+.event-location {
+  margin: 8px 0 0;
+  position: relative;
+  z-index: 1;
+}
+
+.event-meta {
+  color: #5b3c19;
   font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.event-location {
+  color: var(--soft-muted);
+  font-size: 14px;
 }
 
 .form {
   display: grid;
-  gap: 10px;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 18px;
+  padding-bottom: 24px;
+  position: relative;
+  z-index: 1;
 }
 
 .autocomplete-field {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .autocomplete-shell {
@@ -99,8 +158,10 @@ h2 {
 
 label {
   font-weight: 600;
-  font-size: 14px;
-  color: #32465f;
+  font-size: 15px;
+  color: #6b4b26;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 input,
@@ -112,17 +173,41 @@ button {
 input,
 textarea {
   width: 100%;
-  border: 1px solid #c8d6e2;
-  border-radius: 12px;
-  padding: 12px;
-  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  min-height: 56px;
+  padding: 14px 16px;
+  background: rgba(255, 252, 246, 0.98);
   color: var(--ink);
+  font-size: 16px;
+}
+
+textarea {
+  min-height: 140px;
 }
 
 input:focus,
 textarea:focus {
-  outline: 2px solid rgba(0, 109, 119, 0.25);
+  outline: 2px solid rgba(197, 134, 51, 0.18);
   border-color: var(--brand);
+}
+
+input[readonly],
+.readonly-input {
+  background: rgba(244, 234, 218, 0.95);
+  color: #5a3b17;
+  cursor: default;
+}
+
+input[readonly]:focus,
+.readonly-input:focus {
+  outline: none;
+  border-color: var(--line);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9a7951;
 }
 
 .autocomplete-menu {
@@ -132,44 +217,46 @@ textarea:focus {
   right: 0;
   z-index: 10;
   display: grid;
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid #c8d6e2;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
   border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 12px 24px rgba(31, 46, 76, 0.14);
+  background: rgba(255, 250, 242, 0.99);
+  box-shadow: 0 12px 24px rgba(54, 31, 10, 0.16);
 }
 
 .autocomplete-option {
   margin: 0;
-  min-height: 0;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #f5fafb;
+  min-height: 52px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(247, 238, 224, 0.96);
   color: var(--ink);
   text-align: left;
   font-weight: 600;
+  font-size: 16px;
 }
 
 .autocomplete-option:hover {
-  background: #e3f3f4;
+  background: rgba(236, 182, 92, 0.22);
 }
 
 button {
   margin-top: 8px;
   border: 0;
-  border-radius: 12px;
-  min-height: 48px;
-  padding: 12px 14px;
-  background: var(--brand);
-  color: #fff;
+  border-radius: 14px;
+  min-height: 58px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #c98325 0%, #e8b65e 56%, #f7d38f 100%);
+  color: var(--brand-ink);
   font-weight: 700;
+  font-size: 17px;
   cursor: pointer;
   transition: transform 120ms ease, background 120ms ease;
 }
 
 button:hover {
-  background: var(--brand-strong);
+  background: linear-gradient(135deg, #d18c2f 0%, #efc169 56%, #fbe1ac 100%);
 }
 
 button:active {
@@ -183,18 +270,18 @@ button:disabled {
 
 .actions {
   display: grid;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 14px;
+  margin-top: 18px;
 }
 
 .secondary-button {
   background: transparent;
-  color: var(--brand);
-  border: 1px solid #9fc3c6;
+  color: #6a4316;
+  border: 1px solid var(--line-strong);
 }
 
 .secondary-button:hover {
-  background: #eef8f8;
+  background: rgba(255, 210, 128, 0.18);
 }
 
 .status {
@@ -202,6 +289,8 @@ button:disabled {
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
+  position: relative;
+  z-index: 1;
 }
 
 .status.error {
@@ -216,10 +305,41 @@ button:disabled {
 
 .done p {
   margin: 0 0 8px;
+  color: var(--muted);
 }
 
 strong {
   font-weight: 700;
+  color: var(--ink);
+}
+
+.done,
+.feedback-title {
+  position: relative;
+  z-index: 1;
+}
+
+.done {
+  display: grid;
+  gap: 14px;
+  margin-top: 26px;
+  padding-top: 18px;
+  padding-bottom: 28px;
+}
+
+.done-kicker {
+  color: #80501a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.done h2 {
+  margin-top: 22px;
+  margin-bottom: 10px;
+}
+
+.feedback-title {
+  margin-bottom: 12px;
 }
 
 @media (max-width: 640px) {
@@ -228,12 +348,69 @@ strong {
   }
 
   .card {
-    border-radius: 16px;
-    padding: 16px;
+    min-height: calc(100vh - 24px);
+    border-radius: 18px;
+    padding: 22px 18px;
   }
 
   h1 {
-    font-size: 28px;
+    font-size: 32px;
+  }
+
+  .form {
+    gap: 16px;
+    margin-top: 20px;
+    padding-top: 20px;
+    padding-bottom: 28px;
+  }
+
+  .done {
+    gap: 18px;
+    margin-top: 30px;
+    padding-top: 24px;
+    padding-bottom: 36px;
+  }
+
+  .done h2 {
+    margin-top: 26px;
+    margin-bottom: 14px;
+  }
+
+  .autocomplete-field {
+    gap: 12px;
+  }
+
+  label {
+    font-size: 16px;
+  }
+
+  input,
+  textarea,
+  button,
+  .autocomplete-option {
+    font-size: 16px;
+  }
+
+  input,
+  textarea,
+  button {
+    min-height: 60px;
+  }
+
+  .autocomplete-option {
+    min-height: 56px;
+  }
+
+  .event-title-top {
+    font-size: 0.58em;
+  }
+
+  .event-title-main {
+    font-size: 1.1em;
+  }
+
+  .event-title-bottom {
+    font-size: 0.76em;
   }
 
   h2 {
