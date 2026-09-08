@@ -3,6 +3,10 @@ const CHECKIN_LOG_SHEET = 'CheckIn Log';
 const SUGGESTIONS_SHEET = 'Who is coming';
 const SUGGESTION_NAME_COLUMN = 1;
 const SUGGESTION_BATCH_COLUMN = 2;
+const CHECKIN_COL_FEEDBACK = 5;
+const CHECKIN_COL_PHONE = 6;
+const CHECKIN_COL_FEEDBACK_TIMESTAMP = 7;
+const CHECKIN_COL_SOURCE = 8;
 
 function doGet(e) {
   const action = (e && e.parameter && e.parameter.action) || 'health';
@@ -47,7 +51,10 @@ function handleCheckin_(e) {
   const checkinId = cleanText_(getParam_(e, 'checkinId'), 80);
   const name = cleanText_(getParam_(e, 'name'), 100);
   const batch = cleanText_(getParam_(e, 'batch'), 100);
-  const clientTimestamp = cleanText_(getParam_(e, 'clientTimestamp'), 60);
+  const phoneNumber = cleanText_(
+    getParam_(e, 'phoneNumber') || getParam_(e, 'phone') || getParam_(e, 'phone_number') || getParam_(e, 'phone-number'),
+    30
+  );
 
   if (!checkinId || !name || !batch) {
     return jsonResponse({ ok: false, error: 'checkinId, name, and batch are required' });
@@ -63,9 +70,9 @@ function handleCheckin_(e) {
     batch,
     serverTimestamp,
     '',
+    phoneNumber,
     '',
     'checkin_qr',
-    clientTimestamp,
   ]);
 
   return jsonResponse({ ok: true, serverTimestamp: serverTimestamp });
@@ -74,6 +81,10 @@ function handleCheckin_(e) {
 function handleFeedback_(e) {
   const checkinId = cleanText_(getParam_(e, 'checkinId'), 80);
   const feedback = cleanText_(getParam_(e, 'feedback'), 1000);
+  const phoneNumber = cleanText_(
+    getParam_(e, 'phoneNumber') || getParam_(e, 'phone') || getParam_(e, 'phone_number') || getParam_(e, 'phone-number'),
+    30
+  );
 
   if (!checkinId || !feedback) {
     return jsonResponse({ ok: false, error: 'checkinId and feedback are required' });
@@ -101,8 +112,11 @@ function handleFeedback_(e) {
     return jsonResponse({ ok: false, error: 'Check-in record not found' });
   }
 
-  sheet.getRange(targetRow, 5).setValue(feedback);
-  sheet.getRange(targetRow, 6).setValue(new Date().toISOString());
+  sheet.getRange(targetRow, CHECKIN_COL_FEEDBACK).setValue(feedback);
+  if (phoneNumber) {
+    sheet.getRange(targetRow, CHECKIN_COL_PHONE).setValue(phoneNumber);
+  }
+  sheet.getRange(targetRow, CHECKIN_COL_FEEDBACK_TIMESTAMP).setValue(new Date().toISOString());
 
   return jsonResponse({ ok: true });
 }
@@ -195,11 +209,11 @@ function ensureHeader_(sheet) {
     'checkinId',
     'name',
     'batch',
-    'checkinTimestamp',
+    'time',
     'feedback',
+    'phoneNumber',
     'feedbackTimestamp',
     'source',
-    'clientTimestamp',
   ]);
 }
 

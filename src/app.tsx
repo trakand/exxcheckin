@@ -6,6 +6,7 @@ type CheckInRecord = {
   checkinId: string
   name: string
   batch: string
+  phoneNumber: string
   checkinTimestamp: string
 }
 
@@ -40,6 +41,7 @@ const EVENT_TITLE_BOTTOM = 'Melbourne 2026'
 const EVENT_DATE = '12 September 2026'
 const EVENT_TIME = '6:30 PM to Midnight'
 const EVENT_LOCATION = 'Whitehouse, 247 Princes Hwy, Dandenong VIC 3175'
+const NON_ALUMNI_BATCH_VALUE = 'N/A'
 
 function nowIso(): string {
   return new Date().toISOString()
@@ -68,11 +70,17 @@ function loadRecord(): CheckInRecord | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as CheckInRecord
+    const parsed = JSON.parse(raw) as Partial<CheckInRecord>
     if (!parsed.checkinId || !parsed.name || !parsed.batch || !parsed.checkinTimestamp) {
       return null
     }
-    return parsed
+    return {
+      checkinId: parsed.checkinId,
+      name: parsed.name,
+      batch: parsed.batch,
+      phoneNumber: parsed.phoneNumber ?? '',
+      checkinTimestamp: parsed.checkinTimestamp,
+    }
   } catch {
     return null
   }
@@ -126,6 +134,9 @@ async function submitCheckIn(payload: CheckInRecord): Promise<{ serverTimestamp:
     checkinId: payload.checkinId,
     name: payload.name,
     batch: payload.batch,
+    phoneNumber: payload.phoneNumber,
+    phone: payload.phoneNumber,
+    phone_number: payload.phoneNumber,
     checkinTimestamp: payload.checkinTimestamp,
     clientTimestamp: nowIso(),
   })
@@ -140,7 +151,7 @@ async function submitCheckIn(payload: CheckInRecord): Promise<{ serverTimestamp:
   return (await response.json()) as { serverTimestamp: string }
 }
 
-async function submitFeedback(checkinId: string, feedback: string): Promise<void> {
+async function submitFeedback(checkinId: string, feedback: string, phoneNumber: string): Promise<void> {
   if (USE_MOCK_API) {
     return
   }
@@ -149,6 +160,9 @@ async function submitFeedback(checkinId: string, feedback: string): Promise<void
     action: 'feedback',
     checkinId,
     feedback,
+    phoneNumber,
+    phone: phoneNumber,
+    phone_number: phoneNumber,
     clientTimestamp: nowIso(),
   })
 
@@ -176,6 +190,18 @@ function sortSuggestions(suggestions: string[]): string[] {
   return [...suggestions].sort((left, right) =>
     left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }),
   )
+}
+
+function withDefaultBatchOption(suggestions: string[]): string[] {
+  const hasDefault = suggestions.some(
+    (item) => normalizeSuggestion(item) === normalizeSuggestion(NON_ALUMNI_BATCH_VALUE),
+  )
+
+  if (hasDefault) {
+    return suggestions
+  }
+
+  return [...suggestions, NON_ALUMNI_BATCH_VALUE]
 }
 
 function normalizeSuggestion(value: string): string {
@@ -271,6 +297,8 @@ export function App() {
   const [record, setRecord] = useState<CheckInRecord | null>(() => loadRecord())
   const [name, setName] = useState(record?.name ?? '')
   const [batch, setBatch] = useState(record?.batch ?? '')
+  const [phoneNumber, setPhoneNumber] = useState(record?.phoneNumber ?? '')
+  const [feedbackPhoneNumber, setFeedbackPhoneNumber] = useState(record?.phoneNumber ?? '')
   const [liveTimestamp, setLiveTimestamp] = useState(nowIso())
   const [feedbackText, setFeedbackText] = useState('')
 
@@ -286,6 +314,8 @@ export function App() {
     setRecord(null)
     setName('')
     setBatch('')
+    setPhoneNumber('')
+    setFeedbackPhoneNumber('')
     setFeedbackText('')
     setError('')
     navigate('checkin')
@@ -307,7 +337,7 @@ export function App() {
     requestSuggestions()
       .then((data) => {
         setNames(sortSuggestions(data.names ?? []))
-        setBatches(sortSuggestions(data.batches ?? []))
+        setBatches(sortSuggestions(withDefaultBatchOption(data.batches ?? [])))
 
         const mapping = (data.nameBatchPairs ?? []).reduce<Record<string, string>>((accumulator, pair) => {
           if (pair.name && pair.batch) {
@@ -337,6 +367,10 @@ export function App() {
     }
   }, [route, record])
 
+  useEffect(() => {
+    setFeedbackPhoneNumber(record?.phoneNumber ?? '')
+  }, [record])
+
   const handleCheckInSubmit = async (event: Event) => {
     event.preventDefault()
     setError('')
@@ -353,6 +387,7 @@ export function App() {
       checkinId: generateCheckinId(),
       name: trimmedName,
       batch: trimmedBatch,
+      phoneNumber: phoneNumber.trim(),
       checkinTimestamp: nowIso(),
     }
 
@@ -364,6 +399,8 @@ export function App() {
       setRecord(saved)
       setName(saved.name)
       setBatch(saved.batch)
+      setPhoneNumber(saved.phoneNumber)
+      setFeedbackPhoneNumber(saved.phoneNumber)
       navigate('done')
       setRoute('done')
     } catch {
@@ -383,6 +420,7 @@ export function App() {
     }
 
     const trimmedFeedback = feedbackText.trim()
+    const trimmedFeedbackPhoneNumber = feedbackPhoneNumber.trim()
     if (trimmedFeedback.length < 5) {
       setError('Please enter at least 5 characters of feedback.')
       return
@@ -390,7 +428,11 @@ export function App() {
 
     setBusy(true)
     try {
-      await submitFeedback(record.checkinId, trimmedFeedback)
+      await submitFeedback(record.checkinId, trimmedFeedback, trimmedFeedbackPhoneNumber)
+      const updatedRecord = { ...record, phoneNumber: trimmedFeedbackPhoneNumber }
+      saveRecord(updatedRecord)
+      setRecord(updatedRecord)
+      setPhoneNumber(trimmedFeedbackPhoneNumber)
       setFeedbackText('')
       navigate('thanks')
       setRoute('thanks')
@@ -444,6 +486,17 @@ export function App() {
               onValueChange={setBatch}
             />
 
+            <label for="phone-number">Phone Number (Optional)</label>
+            <input
+              id="phone-number"
+              name="phone-number"
+              type="tel"
+              value={phoneNumber}
+              onInput={(event) => setPhoneNumber((event.target as HTMLInputElement).value)}
+              placeholder="Enter phone number"
+              inputMode="tel"
+            />
+
             <label for="timestamp">Check-In Time</label>
             <input
               id="timestamp"
@@ -469,6 +522,11 @@ export function App() {
             <p>
               <strong>Batch:</strong> {record.batch}
             </p>
+            {record.phoneNumber && (
+              <p>
+                <strong>Phone Number:</strong> {record.phoneNumber}
+              </p>
+            )}
             <p>
               <strong>Check-In Time:</strong> {formatDateTime(record.checkinTimestamp)}
             </p>
@@ -496,6 +554,16 @@ export function App() {
 
                   <label for="feedback-batch">Batch</label>
                   <input id="feedback-batch" value={record.batch} readOnly />
+
+                  <label for="feedback-phone">Phone Number (Optional)</label>
+                  <input
+                    id="feedback-phone"
+                    type="tel"
+                    value={feedbackPhoneNumber}
+                    onInput={(event) => setFeedbackPhoneNumber((event.target as HTMLInputElement).value)}
+                    placeholder="Enter phone number"
+                    inputMode="tel"
+                  />
 
                   <label for="feedback">Feedback</label>
                   <textarea
