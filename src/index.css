@@ -15,6 +15,10 @@
   --success-bg: #ebf5e3;
   --success-ink: #2f6730;
   --shadow: 0 26px 60px rgba(0, 0, 0, 0.28);
+  --v-space-xs: clamp(2px, 0.45dvh, 6px);
+  --v-space-sm: clamp(4px, 0.8dvh, 10px);
+  --v-space-md: clamp(8px, 1.15dvh, 14px);
+  --v-space-lg: clamp(12px, 1.8dvh, 22px);
 }
 
 * {
@@ -41,7 +45,7 @@ body {
   min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: clamp(8px, 2vh, 20px);
+  padding: clamp(4px, 1.3dvh, 12px);
   position: relative;
   isolation: isolate;
   background:
@@ -164,12 +168,12 @@ body {
 
 .card {
   width: min(560px, 100%);
-  min-height: min(740px, calc(100dvh - 20px));
+  min-height: min(740px, calc(100dvh - 10px));
   max-height: calc(100dvh - 12px);
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 24px;
-  padding: clamp(14px, 2.4vh, 24px);
+  padding: clamp(10px, 1.7dvh, 16px);
   box-shadow: var(--shadow);
   position: relative;
   overflow: auto;
@@ -188,7 +192,7 @@ body {
 }
 
 h1 {
-  margin: 10px 0 6px;
+  margin: 0 0 var(--v-space-xs);
   font-family: 'Cinzel', 'Times New Roman', serif;
   font-size: 34px;
   line-height: 1.1;
@@ -201,7 +205,7 @@ h1 {
 
 .event-title {
   display: grid;
-  gap: 2px;
+  gap: 1px;
 }
 
 .event-title-top,
@@ -236,7 +240,7 @@ h2 {
 
 .event-meta,
 .event-location {
-  margin: 8px 0 0;
+  margin: var(--v-space-xs) 0 0;
   position: relative;
   z-index: 1;
 }
@@ -255,10 +259,10 @@ h2 {
 
 .form {
   display: grid;
-  gap: 14px;
-  margin-top: 10px;
-  padding-top: 10px;
-  padding-bottom: 8px;
+  gap: var(--v-space-sm);
+  margin-top: var(--v-space-sm);
+  padding-top: var(--v-space-sm);
+  padding-bottom: var(--v-space-xs);
   position: relative;
   z-index: 1;
 }
@@ -278,6 +282,10 @@ label {
   color: #6b4b26;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+}
+
+.form > label {
+  margin-bottom: calc(var(--v-space-xs) * -1);
 }
 
 input,
@@ -358,7 +366,7 @@ textarea::placeholder {
 }
 
 button {
-  margin-top: 8px;
+  margin-top: var(--v-space-xs);
   border: 0;
   border-radius: 14px;
   min-height: 58px;
@@ -401,7 +409,7 @@ button:disabled {
 }
 
 .status {
-  margin: 0 0 14px;
+  margin: 0 0 var(--v-space-sm);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
@@ -448,10 +456,10 @@ strong {
 
 .done {
   display: grid;
-  gap: 14px;
-  margin-top: 16px;
-  padding-top: 10px;
-  padding-bottom: 8px;
+  gap: var(--v-space-sm);
+  margin-top: var(--v-space-md);
+  padding-top: var(--v-space-sm);
+  padding-bottom: var(--v-space-xs);
 }
 
 .done-kicker {
@@ -466,12 +474,12 @@ strong {
 }
 
 .feedback-title {
-  margin-bottom: 12px;
+  margin-bottom: var(--v-space-sm);
 }
 
 @media (max-width: 640px) {
   .app-shell {
-    padding: 8px;
+    padding: clamp(3px, 0.8dvh, 6px);
   }
 
   .swipe-menu {
@@ -487,10 +495,10 @@ strong {
   }
 
   .card {
-    min-height: calc(100dvh - 16px);
-    max-height: calc(100dvh - 16px);
+    min-height: calc(100dvh - 8px);
+    max-height: calc(100dvh - 8px);
     border-radius: 18px;
-    padding: 16px 14px;
+    padding: clamp(8px, 1.2dvh, 12px) 12px;
   }
 
   h1 {
@@ -498,17 +506,17 @@ strong {
   }
 
   .form {
-    gap: 16px;
-    margin-top: 10px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    gap: var(--v-space-sm);
+    margin-top: var(--v-space-xs);
+    padding-top: var(--v-space-xs);
+    padding-bottom: var(--v-space-xs);
   }
 
   .done {
-    gap: 14px;
-    margin-top: 14px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    gap: var(--v-space-sm);
+    margin-top: var(--v-space-sm);
+    padding-top: var(--v-space-xs);
+    padding-bottom: var(--v-space-xs);
   }
 
   .done h2 {

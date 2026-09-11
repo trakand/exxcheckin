@@ -36,7 +36,6 @@ const EVENT_TITLE_MAIN = 'E-XX Reunion'
 const EVENT_TITLE_BOTTOM = 'Melbourne 2026'
 const EVENT_DATE = '12 September 2026'
 const EVENT_TIME = '6:30 PM to Midnight'
-const EVENT_LOCATION = 'Whitehouse, 247 Princes Hwy, Dandenong VIC 3175'
 const NON_ALUMNI_BATCH_VALUE = 'N/A'
 const SWIPE_EDGE_THRESHOLD_PX = 28
 const SWIPE_OPEN_DISTANCE_PX = 52
@@ -569,7 +568,6 @@ export function App() {
           <span class="event-title-bottom">{EVENT_TITLE_BOTTOM}</span>
         </h1>
         <p class="event-meta">{EVENT_DATE} · {EVENT_TIME}</p>
-        <p class="event-location">{EVENT_LOCATION}</p>
 
         {error && (
           <p class="status error" role="alert">
