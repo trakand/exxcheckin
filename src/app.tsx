@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'preact/hooks'
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 
-type Route = 'checkin' | 'done' | 'feedback' | 'thanks'
+type Route = 'checkin' | 'done' | 'feedback' | 'details' | 'thanks'
 
 type CheckInRecord = {
   checkinId: string
@@ -26,10 +26,6 @@ type AutocompleteFieldProps = {
   onSuggestionSelect?: (value: string) => void
 }
 
-type CheckInAgainButtonProps = {
-  onClick: () => void
-}
-
 const STORAGE_KEY = 'exxcheckin.record'
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').trim()
 const USE_MOCK_API =
@@ -42,6 +38,8 @@ const EVENT_DATE = '12 September 2026'
 const EVENT_TIME = '6:30 PM to Midnight'
 const EVENT_LOCATION = 'Whitehouse, 247 Princes Hwy, Dandenong VIC 3175'
 const NON_ALUMNI_BATCH_VALUE = 'N/A'
+const SWIPE_EDGE_THRESHOLD_PX = 28
+const SWIPE_OPEN_DISTANCE_PX = 52
 
 function nowIso(): string {
   return new Date().toISOString()
@@ -55,6 +53,7 @@ function getRouteFromHash(): Route {
   const normalized = window.location.hash.replace(/^#\/?/, '').toLowerCase()
   if (normalized === 'done') return 'done'
   if (normalized === 'feedback') return 'feedback'
+  if (normalized === 'details') return 'details'
   if (normalized === 'thanks') return 'thanks'
   return 'checkin'
 }
@@ -267,38 +266,12 @@ function AutocompleteField({
   )
 }
 
-function CheckInAgainButton({ onClick }: CheckInAgainButtonProps) {
-  return (
-    <button type="button" class="checkin-again-button" onClick={onClick} aria-label="Check in again">
-      <svg class="checkin-again-icon" aria-hidden="true" viewBox="0 0 24 24" role="img">
-        <path
-          d="M8 7H4V3"
-          fill="none"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="1.9"
-        />
-        <path
-          d="M4.5 7.5a8 8 0 1 1-1.2 5.8"
-          fill="none"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="1.9"
-        />
-      </svg>
-    </button>
-  )
-}
-
 export function App() {
   const [route, setRoute] = useState<Route>(getRouteFromHash())
   const [record, setRecord] = useState<CheckInRecord | null>(() => loadRecord())
   const [name, setName] = useState(record?.name ?? '')
   const [batch, setBatch] = useState(record?.batch ?? '')
   const [phoneNumber, setPhoneNumber] = useState(record?.phoneNumber ?? '')
-  const [feedbackPhoneNumber, setFeedbackPhoneNumber] = useState(record?.phoneNumber ?? '')
   const [liveTimestamp, setLiveTimestamp] = useState(nowIso())
   const [feedbackText, setFeedbackText] = useState('')
 
@@ -308,19 +281,13 @@ export function App() {
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [feedbackError, setFeedbackError] = useState('')
+  const [isSwipeMenuOpen, setIsSwipeMenuOpen] = useState(false)
+  const [confirmClearArmed, setConfirmClearArmed] = useState(false)
 
-  const handleCheckInAgain = () => {
-    clearRecord()
-    setRecord(null)
-    setName('')
-    setBatch('')
-    setPhoneNumber('')
-    setFeedbackPhoneNumber('')
-    setFeedbackText('')
-    setError('')
-    navigate('checkin')
-    setRoute('checkin')
-  }
+  const touchStartXRef = useRef(0)
+  const touchStartYRef = useRef(0)
+  const isEdgeSwipeCandidateRef = useRef(false)
 
   useEffect(() => {
     const onHashChange = () => setRoute(getRouteFromHash())
@@ -368,8 +335,100 @@ export function App() {
   }, [route, record])
 
   useEffect(() => {
-    setFeedbackPhoneNumber(record?.phoneNumber ?? '')
-  }, [record])
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1 || isSwipeMenuOpen) {
+        isEdgeSwipeCandidateRef.current = false
+        return
+      }
+
+      const touch = event.touches[0]
+      touchStartXRef.current = touch.clientX
+      touchStartYRef.current = touch.clientY
+      isEdgeSwipeCandidateRef.current = touch.clientX >= window.innerWidth - SWIPE_EDGE_THRESHOLD_PX
+    }
+
+    const onTouchMove = (event: TouchEvent) => {
+      if (!isEdgeSwipeCandidateRef.current || event.touches.length !== 1) {
+        return
+      }
+
+      const touch = event.touches[0]
+      const deltaX = touch.clientX - touchStartXRef.current
+      const deltaY = touch.clientY - touchStartYRef.current
+      const isHorizontalSwipe = Math.abs(deltaX) > Math.abs(deltaY) * 1.2
+
+      if (deltaX <= -SWIPE_OPEN_DISTANCE_PX && isHorizontalSwipe) {
+        setIsSwipeMenuOpen(true)
+        isEdgeSwipeCandidateRef.current = false
+      }
+    }
+
+    const onTouchEnd = () => {
+      isEdgeSwipeCandidateRef.current = false
+    }
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true })
+    window.addEventListener('touchmove', onTouchMove, { passive: true })
+    window.addEventListener('touchend', onTouchEnd, { passive: true })
+
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [isSwipeMenuOpen])
+
+  useEffect(() => {
+    if (!isSwipeMenuOpen) {
+      return
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsSwipeMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isSwipeMenuOpen])
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    if (isSwipeMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      setConfirmClearArmed(false)
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [isSwipeMenuOpen])
+
+  const handleMenuNavigate = (targetRoute: Route) => {
+    navigate(targetRoute)
+    setRoute(targetRoute)
+    setIsSwipeMenuOpen(false)
+  }
+
+  const handleClearCheckIn = () => {
+    if (!confirmClearArmed) {
+      setConfirmClearArmed(true)
+      return
+    }
+
+    clearRecord()
+    setRecord(null)
+    setName('')
+    setBatch('')
+    setPhoneNumber('')
+    setFeedbackText('')
+    setError('')
+    navigate('checkin')
+    setRoute('checkin')
+    setIsSwipeMenuOpen(false)
+  }
 
   const handleCheckInSubmit = async (event: Event) => {
     event.preventDefault()
@@ -400,7 +459,6 @@ export function App() {
       setName(saved.name)
       setBatch(saved.batch)
       setPhoneNumber(saved.phoneNumber)
-      setFeedbackPhoneNumber(saved.phoneNumber)
       navigate('done')
       setRoute('done')
     } catch {
@@ -413,6 +471,7 @@ export function App() {
   const handleFeedbackSubmit = async (event: Event) => {
     event.preventDefault()
     setError('')
+    setFeedbackError('')
 
     if (!record) {
       setError('Check-in record is missing. Please check in first.')
@@ -420,19 +479,14 @@ export function App() {
     }
 
     const trimmedFeedback = feedbackText.trim()
-    const trimmedFeedbackPhoneNumber = feedbackPhoneNumber.trim()
     if (trimmedFeedback.length < 5) {
-      setError('Please enter at least 5 characters of feedback.')
+      setFeedbackError('Please enter at least 5 characters of feedback.')
       return
     }
 
     setBusy(true)
     try {
-      await submitFeedback(record.checkinId, trimmedFeedback, trimmedFeedbackPhoneNumber)
-      const updatedRecord = { ...record, phoneNumber: trimmedFeedbackPhoneNumber }
-      saveRecord(updatedRecord)
-      setRecord(updatedRecord)
-      setPhoneNumber(trimmedFeedbackPhoneNumber)
+      await submitFeedback(record.checkinId, trimmedFeedback, record.phoneNumber)
       setFeedbackText('')
       navigate('thanks')
       setRoute('thanks')
@@ -445,6 +499,69 @@ export function App() {
 
   return (
     <main class="app-shell">
+      <div
+        class={`swipe-menu-overlay ${isSwipeMenuOpen ? 'is-open' : ''}`}
+        onClick={() => setIsSwipeMenuOpen(false)}
+        aria-hidden={isSwipeMenuOpen ? 'false' : 'true'}
+      />
+      <aside class={`swipe-menu ${isSwipeMenuOpen ? 'is-open' : ''}`} aria-label="Quick menu">
+        <div class="swipe-menu-header">
+          <h3>Quick Menu</h3>
+          <button
+            type="button"
+            class="swipe-menu-close"
+            onClick={() => setIsSwipeMenuOpen(false)}
+            aria-label="Close menu"
+          >
+            Close
+          </button>
+        </div>
+        <div class="swipe-menu-body">
+          <div class="swipe-menu-primary">
+            {!record && (
+              <button
+                type="button"
+                class="swipe-menu-item"
+                onClick={() => handleMenuNavigate('checkin')}
+                disabled={route === 'checkin'}
+              >
+                Check-In Form
+              </button>
+            )}
+            {record && (
+              <button
+                type="button"
+                class="swipe-menu-item"
+                onClick={() => handleMenuNavigate('details')}
+                disabled={route === 'details'}
+              >
+                Check-In Details
+              </button>
+            )}
+            <button
+              type="button"
+              class="swipe-menu-item"
+              onClick={() => handleMenuNavigate('feedback')}
+              disabled={route === 'feedback'}
+            >
+              Feedback
+            </button>
+          </div>
+
+          {record && (
+            <div class="swipe-menu-danger">
+              <button
+                type="button"
+                class={`swipe-menu-item secondary ${confirmClearArmed ? 'confirm-armed' : ''}`}
+                onClick={handleClearCheckIn}
+                aria-label={confirmClearArmed ? 'Tap again to clear check-in' : 'Clear check-in'}
+              >
+                {confirmClearArmed ? 'Tap Again to Confirm Clear' : 'Clear Check-In'}
+              </button>
+            </div>
+          )}
+        </div>
+      </aside>
       <section class="card">
         <h1 class="event-title">
           <span class="event-title-top">{EVENT_TITLE_TOP}</span>
@@ -531,9 +648,6 @@ export function App() {
               <strong>Check-In Time:</strong> {formatDateTime(record.checkinTimestamp)}
             </p>
             <h2>Lets party</h2>
-            <div class="corner-actions">
-              <CheckInAgainButton onClick={handleCheckInAgain} />
-            </div>
           </section>
         )}
 
@@ -542,7 +656,7 @@ export function App() {
             <h2 class="feedback-title">Reunion Feedback</h2>
             {!record && (
               <div class="status error">
-                No check-in found on this device. Please scan the check-in QR first.
+                No check-in data found. Please check in first.
               </div>
             )}
 
@@ -555,34 +669,60 @@ export function App() {
                   <label for="feedback-batch">Batch</label>
                   <input id="feedback-batch" value={record.batch} readOnly />
 
-                  <label for="feedback-phone">Phone Number (Optional)</label>
-                  <input
-                    id="feedback-phone"
-                    type="tel"
-                    value={feedbackPhoneNumber}
-                    onInput={(event) => setFeedbackPhoneNumber((event.target as HTMLInputElement).value)}
-                    placeholder="Enter phone number"
-                    inputMode="tel"
-                  />
-
                   <label for="feedback">Feedback</label>
                   <textarea
                     id="feedback"
                     value={feedbackText}
-                    onInput={(event) => setFeedbackText((event.target as HTMLTextAreaElement).value)}
+                    onInput={(event) => {
+                      setFeedbackText((event.target as HTMLTextAreaElement).value)
+                      if (feedbackError) {
+                        setFeedbackError('')
+                      }
+                    }}
                     placeholder="Tell us about the reunion experience"
                     rows={5}
                     maxLength={1000}
                     required
                   />
 
+                  {feedbackError && (
+                    <p class="status error inline-error" role="alert">
+                      {feedbackError}
+                    </p>
+                  )}
+
                   <button type="submit" disabled={busy}>
                     {busy ? 'Submitting feedback...' : 'Submit Feedback'}
                   </button>
                 </form>
-                <div class="corner-actions">
-                  <CheckInAgainButton onClick={handleCheckInAgain} />
-                </div>
+              </>
+            )}
+          </section>
+        )}
+
+        {route === 'details' && (
+          <section class="done" aria-live="polite">
+            <h2>Check-In Details</h2>
+            {!record && (
+              <div class="status error">
+                No check-in data found. Please check in first.
+              </div>
+            )}
+
+            {record && (
+              <>
+                <p>
+                  <strong>Full Name:</strong> {record.name}
+                </p>
+                <p>
+                  <strong>Batch:</strong> {record.batch}
+                </p>
+                <p>
+                  <strong>Phone Number:</strong> {record.phoneNumber || 'Not provided'}
+                </p>
+                <p>
+                  <strong>Check-In Time:</strong> {formatDateTime(record.checkinTimestamp)}
+                </p>
               </>
             )}
           </section>
@@ -598,9 +738,6 @@ export function App() {
             <p>
               You can close this page now.
             </p>
-            <div class="corner-actions">
-              <CheckInAgainButton onClick={handleCheckInAgain} />
-            </div>
           </section>
         )}
       </section>

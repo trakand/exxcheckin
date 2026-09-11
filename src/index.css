@@ -42,9 +42,123 @@ body {
   display: grid;
   place-items: center;
   padding: 24px;
+  position: relative;
+  isolation: isolate;
   background:
     linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.18)),
     radial-gradient(circle at top center, rgba(255, 194, 82, 0.12), transparent 26%);
+}
+
+.swipe-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(14, 8, 3, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.swipe-menu-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.swipe-menu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: min(86vw, 340px);
+  z-index: 40;
+  transform: translateX(102%);
+  transition: transform 220ms ease;
+  background:
+    linear-gradient(180deg, rgba(255, 245, 226, 0.98), rgba(243, 228, 202, 0.98)),
+    radial-gradient(circle at top right, rgba(233, 184, 106, 0.2), transparent 44%);
+  border-left: 1px solid var(--line-strong);
+  box-shadow: -20px 0 38px rgba(0, 0, 0, 0.22);
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.swipe-menu.is-open {
+  transform: translateX(0);
+}
+
+.swipe-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.swipe-menu-header h3 {
+  margin: 0;
+  font-family: 'Cinzel', 'Times New Roman', serif;
+  font-size: 24px;
+  color: var(--brand-strong);
+}
+
+.swipe-menu-close {
+  margin-top: 0;
+  min-height: 40px;
+  min-width: 80px;
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: rgba(255, 253, 248, 0.92);
+  color: #6a4316;
+  font-size: 14px;
+}
+
+.swipe-menu-close:hover {
+  background: rgba(255, 240, 211, 0.95);
+}
+
+.swipe-menu-body {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 14px 20px;
+  overflow-y: auto;
+}
+
+.swipe-menu-primary {
+  display: grid;
+  gap: 10px;
+}
+
+.swipe-menu-danger {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(141, 90, 34, 0.35);
+}
+
+.swipe-menu-item {
+  margin-top: 0;
+  min-height: 52px;
+  border-radius: 12px;
+  text-align: left;
+  padding-inline: 14px;
+  font-size: 16px;
+}
+
+.swipe-menu-item.secondary {
+  background: rgba(255, 252, 247, 0.94);
+  border: 1px solid var(--line-strong);
+  color: #764919;
+}
+
+.swipe-menu-item.secondary:hover {
+  background: rgba(255, 235, 196, 0.64);
+}
+
+.swipe-menu-item.secondary.confirm-armed {
+  background: linear-gradient(135deg, #f9d8c8 0%, #f3b79f 100%);
+  border-color: rgba(169, 71, 43, 0.5);
+  color: #772715;
 }
 
 .card {
@@ -274,15 +388,6 @@ button:disabled {
   margin-top: 18px;
 }
 
-.corner-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: auto;
-  padding-top: 14px;
-  position: relative;
-  z-index: 1;
-}
-
 .secondary-button {
   background: transparent;
   color: #6a4316;
@@ -291,44 +396,6 @@ button:disabled {
 
 .secondary-button:hover {
   background: rgba(255, 210, 128, 0.18);
-}
-
-.checkin-again-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  min-height: 0;
-  margin-top: 0;
-  padding: 0;
-  border: 1px solid rgba(180, 122, 45, 0.28);
-  border-radius: 10px;
-  background: rgba(255, 251, 244, 0.72);
-  color: #6a4316;
-  box-shadow: none;
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: none;
-}
-
-.checkin-again-button:hover {
-  background: rgba(255, 247, 230, 0.95);
-  transform: translateY(-1px);
-  box-shadow: 0 8px 16px rgba(120, 74, 20, 0.08);
-}
-
-.checkin-again-button:active {
-  transform: translateY(0);
-}
-
-.checkin-again-icon {
-  display: block;
-  width: 24px;
-  height: 24px;
-  color: #8d5a22;
-  flex: 0 0 auto;
 }
 
 .status {
@@ -348,6 +415,17 @@ button:disabled {
 .status.success {
   background: var(--success-bg);
   color: var(--success-ink);
+}
+
+.status.inline-error {
+  margin: 2px 0 0;
+  padding: 5px 8px;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.form .inline-error + button {
+  margin-top: 0;
 }
 
 .done p {
@@ -394,6 +472,18 @@ strong {
     padding: 12px;
   }
 
+  .swipe-menu {
+    width: min(92vw, 320px);
+  }
+
+  .swipe-menu-header {
+    padding: 16px 14px 12px;
+  }
+
+  .swipe-menu-header h3 {
+    font-size: 22px;
+  }
+
   .card {
     min-height: calc(100vh - 24px);
     border-radius: 18px;
@@ -421,20 +511,6 @@ strong {
   .done h2 {
     margin-top: 26px;
     margin-bottom: 14px;
-  }
-
-  .corner-actions {
-    padding-top: 12px;
-  }
-
-  .checkin-again-button {
-    width: 38px;
-    height: 38px;
-  }
-
-  .checkin-again-icon {
-    width: 22px;
-    height: 22px;
   }
 
   .autocomplete-field {
