@@ -38,10 +38,10 @@ body {
 }
 
 .app-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: clamp(8px, 2vh, 20px);
   position: relative;
   isolation: isolate;
   background:
@@ -68,7 +68,7 @@ body {
   position: fixed;
   top: 0;
   right: 0;
-  height: 100vh;
+  height: 100dvh;
   width: min(86vw, 340px);
   z-index: 40;
   transform: translateX(102%);
@@ -121,7 +121,8 @@ body {
 .swipe-menu-body {
   display: flex;
   flex-direction: column;
-  padding: 14px 14px 20px;
+  min-height: 0;
+  padding: 12px 12px max(12px, env(safe-area-inset-bottom));
   overflow-y: auto;
 }
 
@@ -131,8 +132,8 @@ body {
 }
 
 .swipe-menu-danger {
-  margin-top: auto;
-  padding-top: 14px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px dashed rgba(141, 90, 34, 0.35);
 }
 
@@ -163,14 +164,15 @@ body {
 
 .card {
   width: min(560px, 100%);
-  min-height: min(760px, calc(100vh - 48px));
+  min-height: min(740px, calc(100dvh - 20px));
+  max-height: calc(100dvh - 12px);
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 24px;
-  padding: 26px;
+  padding: clamp(14px, 2.4vh, 24px);
   box-shadow: var(--shadow);
   position: relative;
-  overflow: hidden;
+  overflow: auto;
   display: flex;
   flex-direction: column;
 }
@@ -254,9 +256,9 @@ h2 {
 .form {
   display: grid;
   gap: 14px;
-  margin-top: 16px;
-  padding-top: 18px;
-  padding-bottom: 24px;
+  margin-top: 10px;
+  padding-top: 10px;
+  padding-bottom: 8px;
   position: relative;
   z-index: 1;
 }
@@ -447,9 +449,9 @@ strong {
 .done {
   display: grid;
   gap: 14px;
-  margin-top: 26px;
-  padding-top: 18px;
-  padding-bottom: 28px;
+  margin-top: 16px;
+  padding-top: 10px;
+  padding-bottom: 8px;
 }
 
 .done-kicker {
@@ -469,7 +471,7 @@ strong {
 
 @media (max-width: 640px) {
   .app-shell {
-    padding: 12px;
+    padding: 8px;
   }
 
   .swipe-menu {
@@ -477,7 +479,7 @@ strong {
   }
 
   .swipe-menu-header {
-    padding: 16px 14px 12px;
+    padding: 14px 12px 10px;
   }
 
   .swipe-menu-header h3 {
@@ -485,9 +487,10 @@ strong {
   }
 
   .card {
-    min-height: calc(100vh - 24px);
+    min-height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
     border-radius: 18px;
-    padding: 22px 18px;
+    padding: 16px 14px;
   }
 
   h1 {
@@ -496,16 +499,16 @@ strong {
 
   .form {
     gap: 16px;
-    margin-top: 20px;
-    padding-top: 20px;
-    padding-bottom: 28px;
+    margin-top: 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
   }
 
   .done {
-    gap: 18px;
-    margin-top: 30px;
-    padding-top: 24px;
-    padding-bottom: 36px;
+    gap: 14px;
+    margin-top: 14px;
+    padding-top: 10px;
+    padding-bottom: 10px;
   }
 
   .done h2 {
