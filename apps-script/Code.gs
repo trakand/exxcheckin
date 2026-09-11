@@ -7,26 +7,39 @@ const CHECKIN_COL_FEEDBACK = 5;
 const CHECKIN_COL_PHONE = 6;
 const CHECKIN_COL_FEEDBACK_TIMESTAMP = 7;
 const CHECKIN_COL_SOURCE = 8;
+const ENABLE_DEBUG_ENDPOINT = false;
+const CHECKIN_RATE_LIMIT_COUNT = 3;
+const CHECKIN_RATE_LIMIT_WINDOW_SEC = 60;
+const FEEDBACK_RATE_LIMIT_COUNT = 4;
+const FEEDBACK_RATE_LIMIT_WINDOW_SEC = 60;
 
 function doGet(e) {
-  const action = (e && e.parameter && e.parameter.action) || 'health';
+  try {
+    const action = (e && e.parameter && e.parameter.action) || 'health';
 
-  if (action === 'suggestions') {
-    const nameBatchPairs = getNameBatchPairs_(SUGGESTIONS_SHEET);
+    if (action === 'suggestions') {
+      const nameBatchPairs = getNameBatchPairs_(SUGGESTIONS_SHEET);
 
-    return jsonResponse({
-      ok: true,
-      names: getSuggestions(SUGGESTIONS_SHEET, SUGGESTION_NAME_COLUMN, 2),
-      batches: getSuggestions(SUGGESTIONS_SHEET, SUGGESTION_BATCH_COLUMN, 3),
-      nameBatchPairs: nameBatchPairs,
-    });
+      return jsonResponse({
+        ok: true,
+        names: getSuggestions(SUGGESTIONS_SHEET, SUGGESTION_NAME_COLUMN, 2),
+        batches: getSuggestions(SUGGESTIONS_SHEET, SUGGESTION_BATCH_COLUMN, 3),
+        nameBatchPairs: nameBatchPairs,
+      });
+    }
+
+    if (action === 'debugSuggestions') {
+      if (!ENABLE_DEBUG_ENDPOINT) {
+        return jsonResponse({ ok: false, error: 'Unsupported action' });
+      }
+      return jsonResponse(debugSuggestions_());
+    }
+
+    return jsonResponse({ ok: true, service: 'exxcheckin-api' });
+  } catch (error) {
+    console.error('doGet failed', error);
+    return jsonResponse({ ok: false, error: 'Request failed' });
   }
-
-  if (action === 'debugSuggestions') {
-    return jsonResponse(debugSuggestions_());
-  }
-
-  return jsonResponse({ ok: true, service: 'exxcheckin-api' });
 }
 
 function doPost(e) {
@@ -43,21 +56,27 @@ function doPost(e) {
 
     return jsonResponse({ ok: false, error: 'Unsupported action' });
   } catch (error) {
-    return jsonResponse({ ok: false, error: String(error) });
+    console.error('doPost failed', error);
+    return jsonResponse({ ok: false, error: 'Request failed' });
   }
 }
 
 function handleCheckin_(e) {
   const checkinId = cleanText_(getParam_(e, 'checkinId'), 80);
-  const name = cleanText_(getParam_(e, 'name'), 100);
-  const batch = cleanText_(getParam_(e, 'batch'), 100);
-  const phoneNumber = cleanText_(
+  const name = cleanSheetText_(getParam_(e, 'name'), 100);
+  const batch = cleanSheetText_(getParam_(e, 'batch'), 100);
+  const phoneNumber = cleanSheetText_(
     getParam_(e, 'phoneNumber') || getParam_(e, 'phone') || getParam_(e, 'phone_number') || getParam_(e, 'phone-number'),
     30
   );
 
   if (!checkinId || !name || !batch) {
     return jsonResponse({ ok: false, error: 'checkinId, name, and batch are required' });
+  }
+
+  const checkinRateKey = 'checkin:' + hashKey_([name, batch, phoneNumber].join('|'));
+  if (!consumeRateLimit_(checkinRateKey, CHECKIN_RATE_LIMIT_COUNT, CHECKIN_RATE_LIMIT_WINDOW_SEC)) {
+    return jsonResponse({ ok: false, error: 'Too many requests. Please try again shortly.' });
   }
 
   const sheet = getSheet_(CHECKIN_LOG_SHEET);
@@ -80,14 +99,19 @@ function handleCheckin_(e) {
 
 function handleFeedback_(e) {
   const checkinId = cleanText_(getParam_(e, 'checkinId'), 80);
-  const feedback = cleanText_(getParam_(e, 'feedback'), 1000);
-  const phoneNumber = cleanText_(
+  const feedback = cleanSheetText_(getParam_(e, 'feedback'), 1000);
+  const phoneNumber = cleanSheetText_(
     getParam_(e, 'phoneNumber') || getParam_(e, 'phone') || getParam_(e, 'phone_number') || getParam_(e, 'phone-number'),
     30
   );
 
   if (!checkinId || !feedback) {
     return jsonResponse({ ok: false, error: 'checkinId and feedback are required' });
+  }
+
+  const feedbackRateKey = 'feedback:' + hashKey_(checkinId);
+  if (!consumeRateLimit_(feedbackRateKey, FEEDBACK_RATE_LIMIT_COUNT, FEEDBACK_RATE_LIMIT_WINDOW_SEC)) {
+    return jsonResponse({ ok: false, error: 'Too many requests. Please try again shortly.' });
   }
 
   const sheet = getSheet_(CHECKIN_LOG_SHEET);
@@ -229,6 +253,35 @@ function getParam_(e, key) {
 function cleanText_(value, maxLen) {
   const text = String(value || '').trim();
   return text.substring(0, maxLen);
+}
+
+function cleanSheetText_(value, maxLen) {
+  const text = cleanText_(value, maxLen);
+  return neutralizeFormula_(text);
+}
+
+function neutralizeFormula_(value) {
+  if (/^[=+\-@]/.test(value)) {
+    return "'" + value;
+  }
+  return value;
+}
+
+function consumeRateLimit_(key, maxRequests, windowSeconds) {
+  const cache = CacheService.getScriptCache();
+  const current = Number(cache.get(key) || '0');
+
+  if (current >= maxRequests) {
+    return false;
+  }
+
+  cache.put(key, String(current + 1), windowSeconds);
+  return true;
+}
+
+function hashKey_(value) {
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(value || ''));
+  return Utilities.base64EncodeWebSafe(digest).substring(0, 24);
 }
 
 function findSheetByName_(spreadsheet, targetName) {
