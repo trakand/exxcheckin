@@ -149,7 +149,13 @@ async function submitCheckIn(payload: CheckInRecord): Promise<{ serverTimestamp:
   return (await response.json()) as { serverTimestamp: string }
 }
 
-async function submitFeedback(checkinId: string, feedback: string, phoneNumber: string): Promise<void> {
+async function submitFeedback(
+  checkinId: string,
+  feedback: string,
+  phoneNumber: string,
+  name?: string,
+  batch?: string,
+): Promise<void> {
   if (USE_MOCK_API) {
     return
   }
@@ -163,6 +169,13 @@ async function submitFeedback(checkinId: string, feedback: string, phoneNumber: 
     phone_number: phoneNumber,
     clientTimestamp: nowIso(),
   })
+
+  if (name) {
+    requestBody.set('name', name)
+  }
+  if (batch) {
+    requestBody.set('batch', batch)
+  }
 
   const response = await fetch(API_BASE_URL, {
     method: 'POST',
@@ -273,6 +286,8 @@ export function App() {
   const [phoneNumber, setPhoneNumber] = useState(record?.phoneNumber ?? '')
   const [liveTimestamp, setLiveTimestamp] = useState(nowIso())
   const [feedbackText, setFeedbackText] = useState('')
+  const [feedbackName, setFeedbackName] = useState(record?.name ?? '')
+  const [feedbackBatch, setFeedbackBatch] = useState(record?.batch ?? '')
 
   const [names, setNames] = useState<string[]>([])
   const [batches, setBatches] = useState<string[]>([])
@@ -320,6 +335,13 @@ export function App() {
   }, [])
 
   useEffect(() => {
+    const matchedBatch = nameToBatch[normalizeSuggestion(feedbackName)]
+    if (matchedBatch && matchedBatch !== feedbackBatch) {
+      setFeedbackBatch(matchedBatch)
+    }
+  }, [feedbackName, feedbackBatch, nameToBatch])
+
+  useEffect(() => {
     const matchedBatch = nameToBatch[normalizeSuggestion(name)]
     if (matchedBatch && matchedBatch !== batch) {
       setBatch(matchedBatch)
@@ -332,6 +354,16 @@ export function App() {
       setRoute('feedback')
     }
   }, [route, record])
+
+  useEffect(() => {
+    if (record) {
+      setFeedbackName(record.name)
+      setFeedbackBatch(record.batch)
+    } else {
+      setFeedbackName(name)
+      setFeedbackBatch(batch)
+    }
+  }, [record, name, batch])
 
   useEffect(() => {
     const onTouchStart = (event: TouchEvent) => {
@@ -424,6 +456,8 @@ export function App() {
     setPhoneNumber('')
     setFeedbackText('')
     setError('')
+    setFeedbackName('')
+    setFeedbackBatch('')
     navigate('checkin')
     setRoute('checkin')
     setIsSwipeMenuOpen(false)
@@ -472,20 +506,43 @@ export function App() {
     setError('')
     setFeedbackError('')
 
-    if (!record) {
-      setError('Check-in record is missing. Please check in first.')
-      return
-    }
-
     const trimmedFeedback = feedbackText.trim()
     if (trimmedFeedback.length < 5) {
       setFeedbackError('Please enter at least 5 characters of feedback.')
       return
     }
 
+    const targetName = record?.name ?? feedbackName.trim()
+    const targetBatch = record?.batch ?? feedbackBatch.trim()
+    if (!targetName || !targetBatch) {
+      setFeedbackError('Name and Batch are required.')
+      return
+    }
+
     setBusy(true)
     try {
-      await submitFeedback(record.checkinId, trimmedFeedback, record.phoneNumber)
+      await submitFeedback(
+        record?.checkinId ?? '',
+        trimmedFeedback,
+        record?.phoneNumber ?? '',
+        targetName,
+        targetBatch,
+      )
+      if (record) {
+        const updatedRecord = { ...record, phoneNumber: record.phoneNumber }
+        saveRecord(updatedRecord)
+        setRecord(updatedRecord)
+      } else {
+        const manualRecord: CheckInRecord = {
+          checkinId: generateCheckinId(),
+          name: targetName,
+          batch: targetBatch,
+          phoneNumber: '',
+          checkinTimestamp: nowIso(),
+        }
+        saveRecord(manualRecord)
+        setRecord(manualRecord)
+      }
       setFeedbackText('')
       navigate('thanks')
       setRoute('thanks')
@@ -652,49 +709,70 @@ export function App() {
         {route === 'feedback' && (
           <section>
             <h2 class="feedback-title">Reunion Feedback</h2>
-            {!record && (
-              <div class="status error">
-                No check-in data found. Please check in first.
-              </div>
-            )}
 
-            {record && (
-              <>
-                <form class="form" onSubmit={handleFeedbackSubmit}>
+            <form class="form" onSubmit={handleFeedbackSubmit}>
+              {record ? (
+                <>
                   <label for="feedback-name">Full Name</label>
-                  <input id="feedback-name" value={record.name} readOnly />
+                  <input id="feedback-name" value={record.name} readOnly aria-readonly="true" />
 
                   <label for="feedback-batch">Batch</label>
-                  <input id="feedback-batch" value={record.batch} readOnly />
-
-                  <label for="feedback">Feedback</label>
-                  <textarea
-                    id="feedback"
-                    value={feedbackText}
-                    onInput={(event) => {
-                      setFeedbackText((event.target as HTMLTextAreaElement).value)
-                      if (feedbackError) {
-                        setFeedbackError('')
+                  <input id="feedback-batch" value={record.batch} readOnly aria-readonly="true" />
+                </>
+              ) : (
+                <>
+                  <AutocompleteField
+                    id="feedback-name"
+                    label="Full Name"
+                    placeholder="Start typing your name"
+                    value={feedbackName}
+                    suggestions={names}
+                    onValueChange={setFeedbackName}
+                    onSuggestionSelect={(selectedName) => {
+                      const matchedBatch = nameToBatch[normalizeSuggestion(selectedName)]
+                      if (matchedBatch) {
+                        setFeedbackBatch(matchedBatch)
                       }
                     }}
-                    placeholder="Tell us about the reunion experience"
-                    rows={5}
-                    maxLength={1000}
-                    required
                   />
 
-                  {feedbackError && (
-                    <p class="status error inline-error" role="alert">
-                      {feedbackError}
-                    </p>
-                  )}
+                  <AutocompleteField
+                    id="feedback-batch"
+                    label="Batch"
+                    placeholder="Select or type your batch"
+                    value={feedbackBatch}
+                    suggestions={batches}
+                    onValueChange={setFeedbackBatch}
+                  />
+                </>
+              )}
 
-                  <button type="submit" disabled={busy}>
-                    {busy ? 'Submitting feedback...' : 'Submit Feedback'}
-                  </button>
-                </form>
-              </>
-            )}
+              <label for="feedback">Feedback</label>
+              <textarea
+                id="feedback"
+                value={feedbackText}
+                onInput={(event) => {
+                  setFeedbackText((event.target as HTMLTextAreaElement).value)
+                  if (feedbackError) {
+                    setFeedbackError('')
+                  }
+                }}
+                placeholder="Tell us about the reunion experience"
+                rows={5}
+                maxLength={1000}
+                required
+              />
+
+              {feedbackError && (
+                <p class="status error inline-error" role="alert">
+                  {feedbackError}
+                </p>
+              )}
+
+              <button type="submit" disabled={busy}>
+                {busy ? 'Submitting feedback...' : 'Submit Feedback'}
+              </button>
+            </form>
           </section>
         )}
 

@@ -99,36 +99,83 @@ function handleCheckin_(e) {
 
 function handleFeedback_(e) {
   const checkinId = cleanText_(getParam_(e, 'checkinId'), 80);
+  const name = cleanSheetText_(getParam_(e, 'name'), 100);
+  const batch = cleanSheetText_(getParam_(e, 'batch'), 100);
   const feedback = cleanSheetText_(getParam_(e, 'feedback'), 1000);
   const phoneNumber = cleanSheetText_(
     getParam_(e, 'phoneNumber') || getParam_(e, 'phone') || getParam_(e, 'phone_number') || getParam_(e, 'phone-number'),
     30
   );
 
-  if (!checkinId || !feedback) {
-    return jsonResponse({ ok: false, error: 'checkinId and feedback are required' });
-  }
-
-  const feedbackRateKey = 'feedback:' + hashKey_(checkinId);
-  if (!consumeRateLimit_(feedbackRateKey, FEEDBACK_RATE_LIMIT_COUNT, FEEDBACK_RATE_LIMIT_WINDOW_SEC)) {
-    return jsonResponse({ ok: false, error: 'Too many requests. Please try again shortly.' });
+  if (!feedback || (!checkinId && (!name || !batch))) {
+    return jsonResponse({ ok: false, error: 'Feedback is required, and a saved check-in or a name and batch are required.' });
   }
 
   const sheet = getSheet_(CHECKIN_LOG_SHEET);
   ensureHeader_(sheet);
 
+  const feedbackRateKey = 'feedback:' + hashKey_([checkinId || name, batch || '', phoneNumber].join('|'));
+  if (!consumeRateLimit_(feedbackRateKey, FEEDBACK_RATE_LIMIT_COUNT, FEEDBACK_RATE_LIMIT_WINDOW_SEC)) {
+    return jsonResponse({ ok: false, error: 'Too many requests. Please try again shortly.' });
+  }
+
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) {
+    if (!checkinId && name && batch) {
+      const now = new Date().toISOString();
+      const manualCheckinId = 'manual_' + Date.now() + '_' + hashKey_([name, batch].join('|')).substring(0, 12);
+      sheet.appendRow([
+        manualCheckinId,
+        name,
+        batch,
+        now,
+        feedback,
+        phoneNumber,
+        now,
+        'feedback_manual',
+      ]);
+      return jsonResponse({ ok: true, checkinId: manualCheckinId, created: true });
+    }
     return jsonResponse({ ok: false, error: 'No check-in records found' });
   }
 
-  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   let targetRow = -1;
 
-  for (var i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]) === checkinId) {
-      targetRow = i + 2;
-      break;
+  if (checkinId) {
+    const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]) === checkinId) {
+        targetRow = i + 2;
+        break;
+      }
+    }
+  } else if (name && batch) {
+    const rows = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+
+    for (var i = 0; i < rows.length; i++) {
+      const rowName = cleanText_(rows[i][1], 100);
+      const rowBatch = cleanText_(rows[i][2], 100);
+      if (rowName === name && rowBatch === batch) {
+        targetRow = i + 2;
+        break;
+      }
+    }
+
+    if (targetRow === -1) {
+      const now = new Date().toISOString();
+      const manualCheckinId = 'manual_' + Date.now() + '_' + hashKey_([name, batch].join('|')).substring(0, 12);
+      sheet.appendRow([
+        manualCheckinId,
+        name,
+        batch,
+        now,
+        feedback,
+        phoneNumber,
+        now,
+        'feedback_manual',
+      ]);
+      return jsonResponse({ ok: true, checkinId: manualCheckinId, created: true });
     }
   }
 
@@ -136,13 +183,18 @@ function handleFeedback_(e) {
     return jsonResponse({ ok: false, error: 'Check-in record not found' });
   }
 
+  const now = new Date().toISOString();
   sheet.getRange(targetRow, CHECKIN_COL_FEEDBACK).setValue(feedback);
   if (phoneNumber) {
     sheet.getRange(targetRow, CHECKIN_COL_PHONE).setValue(phoneNumber);
   }
-  sheet.getRange(targetRow, CHECKIN_COL_FEEDBACK_TIMESTAMP).setValue(new Date().toISOString());
+  sheet.getRange(targetRow, CHECKIN_COL_FEEDBACK_TIMESTAMP).setValue(now);
+  if (!checkinId && name && batch) {
+    sheet.getRange(targetRow, 2).setValue(name);
+    sheet.getRange(targetRow, 3).setValue(batch);
+  }
 
-  return jsonResponse({ ok: true });
+  return jsonResponse({ ok: true, checkinId: checkinId || sheet.getRange(targetRow, 1).getValue() });
 }
 
 function getSuggestions(sheetName, sourceColumn, fallbackColumn) {
